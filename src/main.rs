@@ -5,6 +5,8 @@ use std::time::Duration;
 
 use color_eyre::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use ratatui::layout::Alignment;
+use ratatui::widgets::Borders;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -64,25 +66,19 @@ impl App {
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let title = Line::from(" Game of Life ".bold());
-        let instructions = Line::from(vec![
-            " Quit ".into(),
-            "<Q> ".blue().bold(),
-        ]);
-        let block = Block::bordered()
-            .title(title.centered())
-            .title_bottom(instructions.centered())
-            .border_set(border::THICK);
+        let lines = self.table.into_lines();
 
+        let paragraph = Paragraph::new(lines)
+            .alignment(Alignment::Center).block(Block::default().title("Game of Life").borders(Borders::ALL));
 
-        let counter_text = Text::from(vec![Line::from(vec![
-            self.table.into_string().yellow()
-        ])]);
+        let centered_area = Rect::new(
+            area.x + (area.width.saturating_sub(100)) / 2,
+            area.y + (area.height.saturating_sub(100)) / 2,
+            100.min(area.width),
+            100.min(area.height),
+        );
 
-        Paragraph::new(counter_text)
-            .centered()
-            .block(block)
-            .render(area, buf);
+        paragraph.render(centered_area, buf);
     }
 }
 

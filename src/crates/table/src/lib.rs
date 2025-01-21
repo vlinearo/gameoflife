@@ -1,6 +1,7 @@
 
 use color_eyre::eyre;
-
+use ratatui::text::{Line, Span};
+use ratatui::style::{Color, Style};
 
 #[derive(Debug, Default)]
 pub struct Table {
@@ -37,12 +38,26 @@ impl Table {
         Ok(self)
     }
 
-    pub fn into_string(&self) -> String {
-        self.cells.iter()
-            .map(|row| row.iter().map(|&cell| if cell == 1 { '1' } else { '0' }).collect::<String>())
-            .collect::<Vec<String>>()
-            .join("\n")
+    pub fn into_lines(&self) -> Vec<Line> {
+        self.cells
+            .iter()
+            .map(|row| {
+                let spans = row
+                    .iter()
+                    .map(|&cell| {
+                        // Преобразование числа в символ
+                        let text = if cell == 1 { "1" } else { "0" };
+                        // Создание стиля с цветом
+                        Span::styled(text, Style::default().fg(Color::Yellow))
+                    })
+                    .collect::<Vec<Span>>();
+
+                // Создание строки Line из Span
+                Line::from(spans)
+            })
+            .collect()
     }
+
 
     pub fn find_next_gen(&mut self) -> &mut Self {
         let positions: [[i8; 2]; 8] = [
