@@ -98,16 +98,3 @@ fn main() -> Result<()> {
     ratatui::restore();
     Ok(app_result)
 }
-
-fn run(mut terminal: DefaultTerminal) -> Result<()> {
-    loop {
-        terminal.draw(render)?;
-        if matches!(event::read()?, Event::Key(_)) {
-            break Ok(());
-        }
-    }
-}
-
-fn render(frame: &mut Frame) {
-    frame.render_widget("Game of Life", frame.area());
-}
