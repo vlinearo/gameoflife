@@ -1,88 +1,113 @@
-use color_eyre::eyre;
+
+use std::io;
 use std::thread;
 use std::time::Duration;
 
+use color_eyre::Result;
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use ratatui::{
+    buffer::Buffer,
+    layout::Rect,
+    style::Stylize,
+    symbols::border,
+    text::{Line, Text},
+    widgets::{Block, Paragraph, Widget},
+    DefaultTerminal, Frame,
+};
+
+use table::*;
 
 #[derive(Debug, Default)]
-struct Table {
-    cells: Vec<Vec<u8>>
+pub struct App {
+    table: Table,
+    exit: bool,
 }
 
-impl std::fmt::Display for Table {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for line in &self.cells {
-            for el in line {
-                write!(f, "{} ", el)?;
-            }
-            writeln!(f)?;
+impl App {
+    pub fn new(table: Table) -> Self {
+        Self { table, exit: false }
+    }
+
+    pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
+        while !self.exit {
+            terminal.draw(|frame| self.draw(frame))?;
+            self.handle_events()?;
         }
         Ok(())
     }
-}
 
-impl Table {
-    fn new(size_x: usize, size_y: usize) -> Self {
-        Self { cells: vec![vec![0; size_y]; size_x] }
+    fn draw(&self, frame: &mut Frame) {
+        frame.render_widget(self, frame.area());
     }
 
-    fn draw_table(&self) {
-        println!("{}", self);
-    }
-
-    fn set_points(&mut self, ptrx: usize, ptry: usize) -> eyre::Result<&mut Self> {
-        if ptrx > self.cells.len() || ptry > self.cells[0].len() {
-            return Err(eyre::eyre!("Index out of range!"));
-        }
-
-        self.cells[ptrx-1][ptry-1] = 1;
-        Ok(self)
-    }
-
-    fn find_next_gen(&mut self) -> &mut Self {
-        let positions: [[i8; 2]; 8] = [
-            [0, 1], [1, 0], [0, -1], [-1, 0],
-            [1, -1], [-1, 1], [1, 1], [-1, -1],
-        ];
-
-        let mut next_gen = vec![vec![0; self.cells[0].len()]; self.cells.len()];
-
-        for (i, row) in self.cells.iter().enumerate() {
-            for (j, &cell) in row.iter().enumerate() {
-                let mut alive: u8 = 0;
-
-                for pos in positions {
-                    let (nx, ny) = (i as i8 + pos[0], j as i8 + pos[1]);
-                    if nx >= 0 && nx < self.cells.len() as i8 && ny >= 0 && ny < self.cells[0].len() as i8 {
-                        if self.cells[nx as usize][ny as usize] == 1 {
-                            alive += 1;
-                        }
-                    }
-                }
-
-                next_gen[i][j] = match (cell, alive) {
-                    (1, 2) | (1, 3) => 1,
-                    (0, 3) => 1,
-                    _ => 0,
-                };
+    fn handle_events(&mut self) -> io::Result<()> {
+        match event::read()? {
+            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                self.handle_key_event(key_event)
             }
+            _ => {}
+        };
+        Ok(())
+    }
+
+    fn handle_key_event(&mut self, key_event: KeyEvent) {
+        match key_event.code {
+            KeyCode::Char('q') => self.exit(),
+            _ => {}
         }
+    }
 
-        self.cells = next_gen;
-
-        self
+    fn exit(&mut self) {
+        self.exit = true;
     }
 }
 
-fn main() {
-    let mut new_table = Table::new(10, 10);
-    new_table.set_points(5, 5).unwrap()
-        .set_points(5, 4).unwrap()
-        .set_points(4, 6).unwrap()
-        .set_points(6, 6).unwrap();
+impl Widget for &App {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let title = Line::from(" Game of Life ".bold());
+        let instructions = Line::from(vec![
+            " Quit ".into(),
+            "<Q> ".blue().bold(),
+        ]);
+        let block = Block::bordered()
+            .title(title.centered())
+            .title_bottom(instructions.centered())
+            .border_set(border::THICK);
 
-    new_table.draw_table();
-    loop {
-        new_table.find_next_gen().draw_table();
-        thread::sleep(Duration::from_millis(1_000));
+
+        let counter_text = Text::from(vec![Line::from(vec![
+            self.table.into_string().yellow()
+        ])]);
+
+        Paragraph::new(counter_text)
+            .centered()
+            .block(block)
+            .render(area, buf);
     }
+}
+
+fn main() -> Result<()> {
+    color_eyre::install()?;
+    let mut table = Table::new(10, 10);
+    table.set_points(1,     1).unwrap()
+        .set_points(1, 2).unwrap()
+        .set_points(2, 2).unwrap();
+
+    let mut terminal = ratatui::init();
+    let app_result = App::new(table).run(&mut terminal)?;
+    ratatui::restore();
+    Ok(app_result)
+}
+
+fn run(mut terminal: DefaultTerminal) -> Result<()> {
+    loop {
+        terminal.draw(render)?;
+        if matches!(event::read()?, Event::Key(_)) {
+            break Ok(());
+        }
+    }
+}
+
+fn render(frame: &mut Frame) {
+    frame.render_widget("Game of Life", frame.area());
 }

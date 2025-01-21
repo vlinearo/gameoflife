@@ -1,0 +1,7 @@
+[package]
+name = "table"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+color-eyre.workspace = true
