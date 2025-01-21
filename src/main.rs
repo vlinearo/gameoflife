@@ -1,4 +1,7 @@
 use color_eyre::eyre;
+use std::thread;
+use std::time::Duration;
+
 
 #[derive(Debug, Default)]
 struct Table {
@@ -76,6 +79,10 @@ fn main() {
         .set_points(5, 4).unwrap()
         .set_points(4, 6).unwrap()
         .set_points(6, 6).unwrap();
+
     new_table.draw_table();
-    new_table.find_next_gen().draw_table();
+    loop {
+        new_table.find_next_gen().draw_table();
+        thread::sleep(Duration::from_millis(1_000));
+    }
 }
